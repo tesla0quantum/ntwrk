@@ -1,0 +1,78 @@
+en
+conf t
+hostname R1
+enable secret class
+no ip domain-lookup
+ip domain-name ZAVRSNI
+banner motd %Pristup neovlastenim osobama nije dozvoljen!%
+crypto key generate rsa (1024)
+
+interface Loopback0
+desc Loopback interface 0
+ip address 10.20.0.62 255.255.255.192
+
+interface Loopback1
+desc Loopback interface 1
+ip address 10.20.0.94 255.255.255.224
+
+interface Loopback2
+desc Loopback interface 2
+ip address 10.20.0.126 255.255.255.224
+
+interface Loopback3
+desc Loopback interface 3
+ip address 10.20.0.142 255.255.255.240
+
+interface Loopback4
+desc Loopback interface 4
+ip address 10.20.0.150 255.255.255.248
+
+interface Loopback5
+desc Loopback interface 5
+ip address 10.20.0.154 255.255.255.252
+
+interface FastEthernet0/0
+description Veza prema R2
+ip address 10.1.12.1 255.255.255.0
+
+interface FastEthernet0/1
+description Inter-VLAN Routing trunking interface / bez IP
+no ip address
+no shut
+
+interface FastEthernet0/1.50
+desc Subinterface za VLAN50
+encapsulation dot1Q 50
+ip address 172.16.1.1 255.255.255.0
+ip helper-address 10.1.12.2
+
+
+interface FastEthernet0/1.70
+desc Subinterface za VLAN70
+encapsulation dot1Q 70
+ip address 192.168.1.1 255.255.255.0
+ip helper-address 10.1.12.2
+
+interface FastEthernet0/1.99
+desc Subinterface za VLAN99 - Management
+encapsulation dot1Q 99
+ip address 192.168.2.1 255.255.255.0
+
+router rip
+version 2
+passive-interface FastEthernet0/1.50
+passive-interface FastEthernet0/1.70
+network 10.0.0.0
+network 172.16.0.0
+network 192.168.1.0
+no auto-summary
+
+line con 0
+password cisco
+logging synchronous
+login
+
+line vty 0 15
+login
+transport input ssh
+end

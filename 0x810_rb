@@ -1,0 +1,80 @@
+en
+hostname R2
+enable secret class
+no ip domain-lookup
+ip domain-name ZAVRSNI
+banner motd %Neovlastenim osobama pristup nije odobren!%
+crypto key generate rsa (1024)
+
+ip dhcp excluded-address 172.16.1.1 172.16.1.100
+ip dhcp excluded-address 192.168.1.1 192.168.1.100
+
+ip dhcp pool VLAN50
+network 172.16.1.0 255.255.255.0
+default-router 172.16.1.1
+dns-server 8.8.8.8
+
+ip dhcp pool VLAN70
+network 192.168.1.0 255.255.255.0
+default-router 192.168.1.1
+dns-server 8.8.8.8
+
+interface Loopback1
+description Loopback interface za BGP AS-61211
+ip address 22.22.22.1 255.255.255.0
+
+interface FastEthernet0/0
+description Veza prema R1
+ip address 10.1.12.2 255.255.255.0
+ip nat inside
+
+interface FastEthernet0/1
+description Veza prema SW_External
+ip address 193.200.200.1 255.255.255.252
+ip access-group ACL in
+ip nat outside
+
+router bgp 61211
+bgp log-neighbor-changes
+neighbor 193.200.200.2 remote-as 34594
+network 22.22.22.0 mask 255.255.255.0
+
+router rip
+version 2
+redistribute static metric 0 
+network 10.0.0.0
+no auto-summary
+
+ip nat inside source list NAT interface FastEthernet0/1 overload
+
+ip route 0.0.0.0 0.0.0.0 193.200.200.2 
+
+ip access-list standard SSH
+permit host 192.168.1.101
+
+ip access-list standard NAT
+permit 10.20.0.0 0.0.0.255
+permit 172.16.1.0 0.0.0.255
+permit 192.168.1.0 0.0.0.255
+
+ip access-list extended ACL
+permit icmp any 172.16.1.0 0.0.0.255 echo-reply
+permit icmp any 192.168.1.0 0.0.0.255 echo-reply
+permit ip any host 193.200.200.1
+permit tcp any host 193.200.200.1 eq 179
+permit tcp host 193.200.200.1 any eq 179
+permit tcp any 172.16.1.0 0.0.0.255 eq domain established
+permit tcp any 192.168.1.0 0.0.0.255 eq domain established
+permit tcp any 192.168.1.0 0.0.0.255 eq 22
+permit tcp any 172.16.1.0 0.0.0.255 eq 22
+permit tcp any 192.168.2.0 0.0.0.255 eq 22
+
+line con 0
+password cisco
+logging synchronous
+login
+
+line vty 0 15
+access-class SSH in
+login
+transport input ssh

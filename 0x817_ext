@@ -1,0 +1,255 @@
+www.vlsm-calc.com
+
+https://youtu.be/Keruw_31exU
+
+SW - Router = straight - plavi
+Comp  - Router = straight
+Router - Router = cross - crveni
+Router - Server = cross
+
+brisanje uredaja; u en modu
+wr er
+reload
+
+-za sve uredaje
+hostname __
+no ip domain-lookup
+banner motd # Pristup neovlastenim osobama nije dopusten! #
+line con 0
+pass cisco
+login
+logging synchronouos
+line vty 0 15
+pass cisco
+en secret class
+
+R1
+interface Loopback0
+ ip address 172.16.0.62 255.255.255.192
+!
+interface Loopback1
+ ip address 172.16.0.94 255.255.255.224
+!
+interface Loopback2
+ ip address 172.16.0.126 255.255.255.224
+!
+interface Loopback3
+ ip address 172.16.0.142 255.255.255.240
+!
+interface Loopback4
+ ip address 172.16.0.150 255.255.255.248
+!
+interface Loopback5
+ ip address 172.16.0.154 255.255.255.252
+!
+interface FastEthernet0/1
+ ip address 10.1.12.1 255.255.255.0
+no sh
+int f0/0
+no sh
+interface FastEthernet0/0.25
+ encapsulation dot1Q 25
+ ip address 172.16.1.1 255.255.255.0
+ ip helper-address 10.1.12.2
+!
+interface FastEthernet0/0.35
+ encapsulation dot1Q 35
+ ip address 192.168.1.1 255.255.255.0
+ ip helper-address 10.1.12.2
+!
+interface FastEthernet0/0.99
+ encapsulation dot1Q 99
+ ip address 10.10.10.1 255.255.255.0
+!
+router eigrp 1
+ network 172.16.0.0 0.0.255.255
+ network 10.0.0.0 0.255.255.255
+ network 192.168.0.0 0.0.255.255
+ no auto-summary
+ passive-interface FastEthernet0/0.25
+ passive-interface FastEthernet0/0.35
+!
+ip domain-name lab
+crypto key generate rsa
+1024
+line vty 0 15
+transport input ssh
+conf t
+enable secret class
+ip access-list standard TELNET
+ permit host 172.16.1.101
+line vty 0 15
+access-class TELNET in
+
+R2
+interface FastEthernet0/1
+ ip address 10.1.12.2 255.255.255.0
+no sh
+nterface FastEthernet0/0
+ ip address 193.200.1.2 255.255.255.252
+no sh
+router eigrp 1
+ redistribute static metric 100000 10 255 1 1500 
+ network 10.0.0.0 0.255.255.255
+!
+interface Loopback0
+ ip address 22.22.22.1 255.255.255.0
+!
+ip dhcp excluded-address 172.16.1.1 172.16.1.100
+ip dhcp excluded-address 192.168.1.1 192.168.1.100
+!
+ip dhcp pool VLAN25
+ network 172.16.1.0 255.255.255.0
+ default-router 172.16.1.1
+ dns-server 8.8.8.8
+ip dhcp pool VLAN35
+ network 192.168.1.0 255.255.255.0
+ default-router 192.168.1.1
+ dns-server 8.8.8.8
+ip domain-name lab
+crypto key generate rsa
+1024
+line vty 0 15
+transport input ssh
+conf t
+enable secret class 
+#sh ip dhcp bind
+ip access-list standard TELNET
+ permit host 172.16.1.101
+line vty 0 15
+access-class TELNET in
+ ip access-list standard NAT
+ permit 172.16.0.0 0.0.0.255
+ permit 172.16.1.0 0.0.0.255
+ permit 192.168.1.0 0.0.0.255
+exi
+ ip nat inside source list NAT interface FastEthernet0/0 overload
+int f0/0
+ip nat outside
+int f0/1
+ip nat inside
+exi
+ip route 0.0.0.0 0.0.0.0 193.200.1.1 
+router eigrp 1
+ redistribute static metric 100000 10 255 1 1500
+#sh ip nat trans
+router bgp 61211
+ neighbor 193.200.1.1 remote-as 34594
+ network 22.22.22.0 mask 255.255.255.0
+ bgp log-neighbor-changes
+ no synchronization
+#sh ip bgp su
+#prema lo0 omoguciti komunikaciju samo po portovima 80 i 443 i ping i primijeni na f0/0 (desni)
+ip access-list extended ACL
+ permit tcp any host 22.22.22.1 eq www
+ permit tcp any host 22.22.22.1 eq 443
+ permit icmp any host 22.22.22.1 echo
+interface FastEthernet0/0
+ ip access-group ACL in
+#sad ne radi NAT, pa dodati
+ ip access-list extended ACL
+permit ip any host 193.200.1.2
+
+HQ
+interface Loopback0 
+ ip address 8.8.8.8 255.255.255.255
+!
+interface Loopback1
+ ip address 77.77.77.1 255.255.255.0
+!
+interface FastEthernet0/0
+ ip address 193.200.1.1 255.255.255.252
+no sh
+router bgp 34594
+ neighbor 193.200.1.2 remote-as 61211
+ network 77.77.77.0 mask 255.255.255.0
+ bgp log-neighbor-changes
+ no synchronization
+
+SW1
+interface FastEthernet0/12 switchport mode trunk
+!
+interface FastEthernet0/13 switchport mode trunk
+!
+interface FastEthernet0/14 switchport mode trunk
+!
+interface FastEthernet0/24 switchport mode trunk
+vtp domain LAB
+vlan 25 
+name Administratori
+vlan 35 
+name prodaja
+vlan 99 
+name management
+spanning-tree vlan 25,35,99 root primary
+#sh spanning-tree 
+#sh vlan bri
+int vlan 99
+ip add 10.10.10.101 255.255.255.0
+exi
+ip default-gateway 10.10.10.1
+ip access-list standard TELNET
+ permit host 172.16.1.101
+line vty 0 15
+access-class TELNET in
+
+SW2 
+interface FastEthernet0/10
+switchport mode access 
+switchport access vlan 25
+spanning-tree portfast
+switchport port-security
+switchport port-security maximum 3
+switchport port-security violation restrict 
+!
+interface FastEthernet0/12 switchport mode trunk
+!
+interface FastEthernet0/23 switchport mode trunk
+interface Vlan99
+ip address 10.10.10.102 255.255.255.0
+exi
+ip default-gateway 10.10.10.1
+ip access-list standard TELNET
+ permit host 172.16.1.101
+line vty 0 15
+access-class TELNET in 
+
+SW3
+interface FastEthernet0/10
+switchport mode access
+switchport access vlan 35
+spanning-tree portfast
+switchport port-security  
+switchport port-security maximum 1
+switchport port-security mac-address sticky 
+switchport port-security violation shutdown
+#sh port-security
+#sh port-security int f0/10
+#sh int f0/10
+#conf t
+#int f0/10
+#sh
+#no sh 
+!
+interface FastEthernet0/13 switchport mode trunk
+!
+interface FastEthernet0/14 switchport mode trunk
+!
+interface FastEthernet0/23 switchport mode trunk
+interface Vlan99
+ip address 10.10.10.103 255.255.255.0
+exi
+ip default-gateway 10.10.10.1
+ip access-list standard TELNET
+ permit host 172.16.1.101
+line vty 0 15
+access-class TELNET in
+
+####
+Protect - block
+Restrict - syslog, block
+Shutdown - err, shutdown
+
+dynamic
+static - jedan mac
+sticky - mac
